@@ -1,0 +1,11 @@
+# Compiled executable
+minidb
+
+# Object files (generated during compilation)
+*.o
+
+# VS Code settings (personal IDE configurations)
+.vscode/
+
+# macOS system files
+.DS_Store
