@@ -13,3 +13,11 @@ bool Database::get(const string& key, string& value) const {
 bool Database::remove(const string& key) {
     return storage.remove(key);
 }
+
+void Database::save() const {
+    storage.save();
+}
+
+void Database::load() {
+    storage.load();
+}

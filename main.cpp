@@ -5,6 +5,7 @@ using namespace std;
 
 int main() {
     Database db;
+    db.load();
 
     string line;
 
@@ -51,6 +52,7 @@ int main() {
             }
         }
         else if (command == "EXIT") {
+            db.save();
             break;
         }
         else {
