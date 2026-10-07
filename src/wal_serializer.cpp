@@ -4,6 +4,10 @@
 
 using namespace std;
 
+
+// 0xFF -> 11111111 (8 set bits)
+// like how we mask for 1 bit : (val >> i) & 1
+// for 8 bits val >> (8 * i) & 0xFF
 void WALSerializer::appendUint16(vector<uint8_t>& buffer, uint16_t value) {
     for (int i = 0; i < 2; i++) {
         buffer.push_back((value >> (8 * i)) & 0xFF);
