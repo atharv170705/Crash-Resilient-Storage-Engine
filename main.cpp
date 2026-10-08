@@ -9,32 +9,63 @@ using namespace std;
 int main() {
     Database db;
 
-    // Start a transaction
+    // Create a committed value first.
     db.begin();
+    db.set("A", "50");
+    db.commit();
 
-    // Write inside transaction
-    db.set("A", "100");
-
-    // GET should see the uncommitted value
     string value;
 
+    // Modify and delete the committed value inside a transaction.
+    db.begin();
+
+    db.set("A", "100");
+    cout << "After SET A=100: ";
+
     if (db.get("A", value)) {
-        cout << "Inside transaction: A = " << value << '\n';
-    }
-    else {
-        cout << "Inside transaction: A not found\n";
+        cout << "A = " << value << '\n';
     }
 
-    // Rollback the transaction
+    db.remove("A");
+
+    cout << "After DELETE A: ";
+
+    if (db.get("A", value)) {
+        cout << "A = " << value << '\n';
+    }
+    else {
+        cout << "A not found\n";
+    }
+
     db.rollback();
 
-    // GET after rollback
+    // Rollback should restore the previously committed value.
+    cout << "After rollback: ";
+
     if (db.get("A", value)) {
-        cout << "After rollback: A = " << value << '\n';
+        cout << "A = " << value << '\n';
     }
     else {
-        cout << "After rollback: A not found\n";
+        cout << "A not found\n";
     }
+
+    // Test deleting a key created only inside the transaction.
+    db.begin();
+
+    db.set("B", "200");
+    db.remove("B");
+
+    cout << "New key B after SET + DELETE: ";
+
+    if (db.get("B", value)) {
+        cout << "B = " << value << '\n';
+    }
+    else {
+        cout << "B not found\n";
+    }
+
+    db.rollback();
+
 
     return 0;
 }

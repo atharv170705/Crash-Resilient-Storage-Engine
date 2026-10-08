@@ -8,6 +8,16 @@ Database::Database()
 
 }
 
+void Database::begin() {
+    if (activeTransaction != nullptr) {
+        throw runtime_error("Transaction already active");
+    }
+    activeTransaction = make_unique<Transaction>(nextTxnId);
+    WALRecord record(nextTxnId, OpCode::BEGIN);
+    wal.append(record);
+    nextTxnId++;
+}
+
 void Database::set(const string& key, const string& value) {
     if (activeTransaction == nullptr) {
         throw runtime_error("No active transaction");
@@ -17,33 +27,32 @@ void Database::set(const string& key, const string& value) {
     activeTransaction -> addOperation(record);
 }
 
-bool Database::get(const string& key, string& value) const {
-    if (activeTransaction != nullptr) {
-        const auto& operations = activeTransaction -> getOperations();
-
-        for (auto it = operations.rbegin(); it != operations.rend(); it++) {
-            if (it->key != key) {
-                continue;
-            }
-            if (it->op == OpCode::SET) {
-                value = it->value;
-                return true;
-            }
-            if (it->op == OpCode::DELETE_KEY) {
-                return false;
-            }
-        }
-    }
-
-    return storage.get(key, value);
-}
-
 bool Database::remove(const string& key) {
     if (activeTransaction == nullptr) {
         throw runtime_error("No active transaction");
     }
 
+    const auto& operations = activeTransaction -> getOperations();
+
+    for (auto it = operations.rbegin(); it != operations.rend(); it++) {
+        if (it->key != key) {
+            continue;
+        }
+
+        if (it->op == OpCode::SET) {
+            WALRecord record(activeTransaction->getId(), OpCode::DELETE_KEY, key);
+            wal.append(record);
+            activeTransaction->addOperation(record);
+            return true;
+        }
+
+        if (it->op == OpCode::DELETE_KEY) {
+            return false;
+        }
+    }
+
     string existingValue;
+
     if (!storage.get(key, existingValue)) {
         return false;
     }
@@ -55,15 +64,6 @@ bool Database::remove(const string& key) {
     return true;
 }
 
-void Database::begin() {
-    if (activeTransaction != nullptr) {
-        throw runtime_error("Transaction already active");
-    }
-    activeTransaction = make_unique<Transaction>(nextTxnId);
-    WALRecord record(nextTxnId, OpCode::BEGIN);
-    wal.append(record);
-    nextTxnId++;
-}
 
 void Database::commit() {
     if (activeTransaction == nullptr) {
@@ -95,6 +95,27 @@ void Database::rollback() {
     WALRecord rollbackRecord(txnId, OpCode::ROLLBACK);
     wal.append(rollbackRecord);
     activeTransaction.reset();
+}
+
+bool Database::get(const string& key, string& value) const {
+    if (activeTransaction != nullptr) {
+        const auto& operations = activeTransaction -> getOperations();
+
+        for (auto it = operations.rbegin(); it != operations.rend(); it++) {
+            if (it->key != key) {
+                continue;
+            }
+            if (it->op == OpCode::SET) {
+                value = it->value;
+                return true;
+            }
+            if (it->op == OpCode::DELETE_KEY) {
+                return false;
+            }
+        }
+    }
+
+    return storage.get(key, value);
 }
 
 void Database::save() const {
