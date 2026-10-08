@@ -82,7 +82,6 @@ vector<uint8_t> WALSerializer::serialize(const WALRecord& record) {
 
     // Reserve space for record length.
     size_t lengthOffset = buffer.size();
-
     appendUint32(buffer, 0);
 
     appendUint64(buffer, record.txn_id);

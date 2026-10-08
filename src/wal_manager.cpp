@@ -43,13 +43,16 @@ void WALManager::append(const WALRecord& record) {
     }
 
     ssize_t bytesWritten = write(fd, bytes.data(), bytes.size());
+    // This write() is a POSIX system call/function.
 
     if (bytesWritten != static_cast<ssize_t>(bytes.size())) {
         close(fd);
         throw runtime_error("Failed to write complete WAL record");
     }
 
-    if (fsync(fd) == -1) {
+    int res = fsync(fd);
+
+    if (res == -1) {
         close(fd);
         throw runtime_error("Failed to fsync WAL");
     }
