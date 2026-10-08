@@ -12,7 +12,7 @@ vector<WALRecord> WALReader::readAll() {
     vector<WALRecord> records;
     ifstream file(filename, ios::binary);
     if(!file.is_open()) {
-        throw runtime_error("Failed to open WAL file");
+        return records;
     }
 
     while(true) {

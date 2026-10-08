@@ -5,6 +5,7 @@
 #include "storage_engine.hpp"
 #include "wal_manager.hpp"
 #include "transaction.hpp"
+#include "recovery_manager.hpp"
 
 using namespace std;
 
@@ -12,9 +13,8 @@ class Database {
 private:
     StorageEngine storage;
     WALManager wal;
-
+    RecoveryManager recovery;
     unique_ptr<Transaction> activeTransaction;
-
     uint64_t nextTxnId;   
 public:
     Database();

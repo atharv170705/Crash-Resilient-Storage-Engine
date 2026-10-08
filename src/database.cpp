@@ -4,8 +4,12 @@ using namespace std;
 
 Database::Database()
     : wal("data/database.wal"),
+      recovery("data/database.wal"),
       nextTxnId(1) {
 
+    uint64_t maxTxnId = recovery.recover(storage);
+
+    nextTxnId = maxTxnId + 1;
 }
 
 void Database::begin() {
