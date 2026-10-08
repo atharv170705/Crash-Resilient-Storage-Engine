@@ -115,49 +115,112 @@ vector<uint8_t> WALSerializer::serialize(const WALRecord& record) {
 
 
 bool WALSerializer::deserialize(const vector<uint8_t>& buffer, WALRecord& record) {
+
+    // Minimum record size: MAGIC (4) + VERSION (2) + LENGTH (4) + TXN_ID (8) + OPCODE (1) + CRC32 (4)
     if (buffer.size() < 23) {
         return false;
     }
 
     size_t offset = 0;
 
+    if (buffer.size() - offset < sizeof(uint32_t)) {
+        return false;
+    }
     uint32_t magic = readUint32(buffer, offset);
-
     if (magic != WALRecord::MAGIC) {
         return false;
     }
 
+    if (buffer.size() - offset < sizeof(uint16_t)) {
+        return false;
+    }
     uint16_t version = readUint16(buffer, offset);
-
     if (version != WALRecord::VERSION) {
         return false;
     }
 
+    if (buffer.size() - offset < sizeof(uint32_t)) {
+        return false;
+    }
     uint32_t recordLength = readUint32(buffer, offset);
-
     if (recordLength != buffer.size()) {
         return false;
     }
 
+    if (buffer.size() - offset < sizeof(uint64_t)) {
+        return false;
+    }
     uint64_t txnId = readUint64(buffer, offset);
 
+    if (buffer.size() - offset < sizeof(uint8_t)) {
+        return false;
+    }
     uint8_t opCode = buffer[offset++];
-
     if (opCode < static_cast<uint8_t>(OpCode::BEGIN) || opCode > static_cast<uint8_t>(OpCode::ROLLBACK)) {
         return false;
     }
 
     record.txn_id = txnId;
     record.op = static_cast<OpCode>(opCode);
+    record.key.clear();
+    record.value.clear();
+
 
     if (record.op == OpCode::SET) {
-        record.key = readString(buffer, offset);
-        record.value = readString(buffer, offset);
+        // record.key = readString(buffer, offset);
+        // record.value = readString(buffer, offset);
+         if (buffer.size() - offset < sizeof(uint32_t))
+            return false;
+
+        uint32_t keyLength = readUint32(buffer, offset);
+
+        if (buffer.size() - offset < keyLength)
+            return false;
+
+        record.key.assign(
+            reinterpret_cast<const char*>(buffer.data() + offset),
+            keyLength
+        );
+
+        offset += keyLength;
+
+        if (buffer.size() - offset < sizeof(uint32_t))
+            return false;
+
+        uint32_t valueLength = readUint32(buffer, offset);
+
+        if (buffer.size() - offset < valueLength)
+            return false;
+
+        record.value.assign(
+            reinterpret_cast<const char*>(buffer.data() + offset),
+            valueLength
+        );
+
+        offset += valueLength;
     }
     else if (record.op == OpCode::DELETE_KEY) {
-        record.key = readString(buffer, offset);
+        // record.key = readString(buffer, offset);
+
+        if (buffer.size() - offset < sizeof(uint32_t))
+            return false;
+
+        uint32_t keyLength = readUint32(buffer, offset);
+
+        if (buffer.size() - offset < keyLength)
+            return false;
+
+        record.key.assign(
+            reinterpret_cast<const char*>(buffer.data() + offset),
+            keyLength
+        );
+
+        offset += keyLength;
     }
 
+    if (buffer.size() - offset != sizeof(uint32_t)) {
+        return false;
+    }
     uint32_t storedCRC = readUint32(buffer, offset);
 
     vector<uint8_t> data(buffer.begin(), buffer.begin() + buffer.size() - sizeof(uint32_t));
