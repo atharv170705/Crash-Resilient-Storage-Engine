@@ -3,69 +3,56 @@
 
 #include "wal_manager.hpp"
 #include "wal_serializer.hpp"
+#include "wal_reader.hpp"
+#include "recovery_manager.hpp"
 
 using namespace std;
 
 int main() {
-    Database db;
+    string walFile = "data/recovery_test.wal";
 
-    // Create a committed value first.
-    db.begin();
-    db.set("A", "50");
-    db.commit();
+    // Create a clean WAL for this test.
+    remove(walFile.c_str());
+
+    WALManager wal(walFile);
+
+    // TXN 1: committed.
+    wal.append(WALRecord(1, OpCode::BEGIN));
+    wal.append(WALRecord(1, OpCode::SET, "A", "100"));
+    wal.append(WALRecord(1, OpCode::SET, "B", "200"));
+    wal.append(WALRecord(1, OpCode::COMMIT));
+
+    // TXN 2: incomplete.
+    wal.append(WALRecord(2, OpCode::BEGIN));
+    wal.append(WALRecord(2, OpCode::SET, "C", "300"));
+
+    // Simulate crash here.
+    // No COMMIT for TXN 2.
+
+    StorageEngine storage;
+
+    RecoveryManager recovery(walFile);
+
+    uint64_t maxTxnId = recovery.recover(storage);
+
+    cout << "Highest transaction ID: " << maxTxnId << "\n\n";
 
     string value;
 
-    // Modify and delete the committed value inside a transaction.
-    db.begin();
-
-    db.set("A", "100");
-    cout << "After SET A=100: ";
-
-    if (db.get("A", value)) {
-        cout << "A = " << value << '\n';
+    if (storage.get("A", value)) {
+        cout << "A = " << value << "\n";
     }
 
-    db.remove("A");
+    if (storage.get("B", value)) {
+        cout << "B = " << value << "\n";
+    }
 
-    cout << "After DELETE A: ";
-
-    if (db.get("A", value)) {
-        cout << "A = " << value << '\n';
+    if (storage.get("C", value)) {
+        cout << "C = " << value << "\n";
     }
     else {
-        cout << "A not found\n";
+        cout << "C does not exist\n";
     }
-
-    db.rollback();
-
-    // Rollback should restore the previously committed value.
-    cout << "After rollback: ";
-
-    if (db.get("A", value)) {
-        cout << "A = " << value << '\n';
-    }
-    else {
-        cout << "A not found\n";
-    }
-
-    // Test deleting a key created only inside the transaction.
-    db.begin();
-
-    db.set("B", "200");
-    db.remove("B");
-
-    cout << "New key B after SET + DELETE: ";
-
-    if (db.get("B", value)) {
-        cout << "B = " << value << '\n';
-    }
-    else {
-        cout << "B not found\n";
-    }
-
-    db.rollback();
-
 
     return 0;
 }

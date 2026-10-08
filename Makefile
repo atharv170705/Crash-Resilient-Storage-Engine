@@ -10,7 +10,9 @@ SOURCES = main.cpp \
           src/crc32.cpp \
           src/wal_serializer.cpp \
           src/wal_manager.cpp \
-          src/transaction.cpp
+          src/transaction.cpp \
+          src/wal_reader.cpp \
+          src/recovery_manager.cpp
 
 $(TARGET): $(SOURCES)
 	$(CXX) $(CXXFLAGS) $(SOURCES) -o $(TARGET)
