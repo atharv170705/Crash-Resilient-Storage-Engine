@@ -12,5 +12,5 @@ private:
 public:
     WALReader(const string& filename);
 
-    vector<WALRecord> readAll();
+    vector<WALRecord> readAll(uint64_t& validBytes, bool& invalidTail);
 };

@@ -1,13 +1,44 @@
 #include "recovery_manager.hpp"
+#include <fcntl.h>
+#include <unistd.h>
 
 using namespace std;
 
 RecoveryManager::RecoveryManager(const string& walFilename)
-    : reader(walFilename) {
+    : filename(walFilename),
+      reader(walFilename) {
+}
+
+void RecoveryManager::truncateWAL(uint64_t validBytes) {
+    int fd = open(filename.c_str(), O_WRONLY);
+
+    if (fd == -1) {
+        throw runtime_error("Failed to open WAL for truncation");
+    }
+
+    if (ftruncate(fd, static_cast<off_t>(validBytes)) == -1) {
+        close(fd);
+        throw runtime_error("Failed to truncate invalid WAL tail");
+    }
+
+    if (fsync(fd) == -1) {
+        close(fd);
+        throw runtime_error("Failed to fsync truncated WAL");
+    }
+
+    close(fd);
 }
 
 uint64_t RecoveryManager::recover(StorageEngine& storage) {
-    vector<WALRecord> records = reader.readAll();
+    uint64_t validBytes = 0;
+    bool invalidTail = false;
+
+    vector<WALRecord> records = reader.readAll(validBytes, invalidTail);
+
+    if (invalidTail) {
+        truncateWAL(validBytes);
+        cout << "Truncated invalid WAL tail at byte " << validBytes << "\n";
+    }
 
     unordered_set<uint64_t> committedTransactions;
     uint64_t maxTxnId = 0;

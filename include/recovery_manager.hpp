@@ -8,7 +8,10 @@ using namespace std;
 
 class RecoveryManager {
 private:
+    string filename;
     WALReader reader;
+    
+    void truncateWAL(uint64_t validBytes);
 
 public:
     RecoveryManager(const string& walFilename);

@@ -8,12 +8,16 @@ WALReader::WALReader(const string& filename)
 
 }
 
-vector<WALRecord> WALReader::readAll() {
+vector<WALRecord> WALReader::readAll(uint64_t& validBytes, bool& invalidTail) {
     vector<WALRecord> records;
+    validBytes = 0;
+    invalidTail = false;
     ifstream file(filename, ios::binary);
     if(!file.is_open()) {
         return records;
     }
+
+    const uint32_t MAX_RECORD_SIZE = 64 * 1024 * 1024;
 
     while(true) {
         //Read MAGIC + VERSION + LENGTH = 4 + 2 + 4 = 10 bytes.
@@ -28,6 +32,7 @@ vector<WALRecord> WALReader::readAll() {
 
         if (bytesRead != sizeof(header)) {
             cerr << "Incomplete WAL header\n";
+            invalidTail = true;
             break;
         }
 
@@ -36,8 +41,9 @@ vector<WALRecord> WALReader::readAll() {
             recordLength |= static_cast<uint32_t>(header[6 + i]) << (8 * i);
         }
 
-        if (recordLength < 10) {
+        if (recordLength < 23 || recordLength > MAX_RECORD_SIZE) {
             cerr << "Invalid WAL record length\n";
+            invalidTail = true;
             break;
         }
 
@@ -51,6 +57,7 @@ vector<WALRecord> WALReader::readAll() {
 
         if (file.gcount() != static_cast<streamsize>(recordLength - 10)) {
             cerr << "Incomplete WAL record\n";
+            invalidTail = true;
             break;
         }
 
@@ -58,10 +65,12 @@ vector<WALRecord> WALReader::readAll() {
 
         if (!WALSerializer::deserialize(buffer, record)) {
             cerr << "Invalid WAL record detected\n";
+            invalidTail = true;
             break;
         }
 
         records.push_back(record);
+        validBytes += recordLength;
     }
 
     return records;
