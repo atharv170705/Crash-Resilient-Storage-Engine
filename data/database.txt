@@ -1,3 +1,0 @@
-college IITBHU
-name Atharv
-age 21

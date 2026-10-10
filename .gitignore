@@ -1,6 +1,9 @@
 # Compiled executable
 minidb
 
+# Runtime database files
+data/
+
 # Object files (generated during compilation)
 *.o
 
